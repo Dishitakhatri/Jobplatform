@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JobAgent — AI-Powered Job Application System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b0c0f;
+  --bg2:#111318;
+  --bg3:#181b22;
+  --bg4:#1e2230;
+  --border:rgba(255,255,255,0.06);
+  --border2:rgba(255,255,255,0.12);
+  --text:#eceef4;
+  --muted:#6b7280;
+  --subtle:#3d4354;
+  --amber:#e8a020;
+  --amber-dim:rgba(232,160,32,0.12);
+  --amber-glow:rgba(232,160,32,0.25);
+  --teal:#17c99b;
+  --teal-dim:rgba(23,201,155,0.1);
+  --red:#f05c5c;
+  --red-dim:rgba(240,92,92,0.1);
+  --blue:#4c8af5;
+  --blue-dim:rgba(76,138,245,0.1);
+  --r:8px;
+  --r2:12px;
+  --sidebar:220px;
+  --font:'Outfit',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:15px;line-height:1.6}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--subtle);border-radius:3px}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar);flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.logo{padding:20px 18px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.logo-mark{width:30px;height:30px;background:var(--amber);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:500;color:#0b0c0f;flex-shrink:0}
+.logo-text{font-family:var(--mono);font-size:14px;font-weight:500;letter-spacing:-.01em;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--muted);letter-spacing:.05em}
+.nav{padding:12px 8px;flex:1;overflow-y:auto}
+.nav-section{font-size:10px;color:var(--subtle);letter-spacing:.1em;font-weight:500;padding:8px 10px 4px;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;color:var(--muted);font-size:13px;transition:all .15s;margin-bottom:1px;user-select:none}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--amber-dim);color:var(--amber)}
+.nav-icon{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--bg4);color:var(--muted);font-size:10px;padding:2px 6px;border-radius:100px;font-family:var(--mono)}
+.nav-badge.amber{background:var(--amber-dim);color:var(--amber)}
+.sidebar-bottom{padding:12px 8px;border-top:1px solid var(--border)}
+.api-status{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r);background:var(--bg3);cursor:pointer;transition:background .15s}
+.api-status:hover{background:var(--bg4)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--red);flex-shrink:0}
+.status-dot.ok{background:var(--teal)}
+.status-text{font-size:12px;color:var(--muted);flex:1}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;background:var(--bg)}
+.page-title{font-size:14px;font-weight:500;color:var(--text)}
+.page-sub{font-size:13px;color:var(--muted)}
+.topbar-sep{color:var(--subtle)}
+.topbar-actions{margin-left:auto;display:flex;gap:8px}
+.content{flex:1;overflow-y:auto;padding:24px}
+.panel{display:none}
+.panel.active{display:block;animation:fade .2s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── COMPONENTS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:20px}
+.card+.card{margin-top:12px}
+.card-title{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:500;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:12px;color:var(--muted)}
+input[type=text],input[type=email],input[type=password],select,textarea{
+  width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);
+  padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;
+  transition:border-color .15s;outline:none}
+input[type=text]:focus,input[type=email]:focus,input[type=password]:focus,select:focus,textarea:focus{border-color:var(--border2)}
+textarea{resize:vertical;min-height:120px;font-family:var(--mono);font-size:12px;line-height:1.7}
+textarea.lg{min-height:200px}
+select{cursor:pointer}
+select option{background:var(--bg3)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--font);transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--bg4);border-color:var(--border2)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-amber{background:var(--amber);color:#0b0c0f;border-color:var(--amber);font-weight:600}
+.btn-amber:hover{background:#d4911c;border-color:#d4911c}
+.btn-teal{background:var(--teal-dim);color:var(--teal);border-color:var(--teal)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-icon{padding:7px;width:34px;height:34px;justify-content:center}
+.actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;align-items:center}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:500;font-family:var(--mono)}
+.badge-amber{background:var(--amber-dim);color:var(--amber)}
+.badge-teal{background:var(--teal-dim);color:var(--teal)}
+.badge-red{background:var(--red-dim);color:var(--red)}
+.badge-blue{background:var(--blue-dim);color:var(--blue)}
+.badge-gray{background:var(--bg4);color:var(--muted)}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
+.empty-icon{font-size:32px;margin-bottom:12px}
+.empty-text{font-size:14px;margin-bottom:8px;color:var(--text)}
+.empty-sub{font-size:13px;color:var(--muted)}
+
+/* ── STAT CARDS ── */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px}
+.stat-val{font-size:28px;font-weight:600;font-family:var(--mono);color:var(--text);line-height:1}
+.stat-val.amber{color:var(--amber)}
+.stat-val.teal{color:var(--teal)}
+.stat-val.red{color:var(--red)}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.03em}
+
+/* ── TAG INPUT ── */
+.tag-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);min-height:42px;align-items:center;cursor:text}
+.tag-wrap:focus-within{border-color:var(--border2)}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:var(--amber-dim);color:var(--amber);border-radius:100px;font-size:12px;font-family:var(--mono)}
+.tag-rm{background:none;border:none;color:var(--amber);cursor:pointer;font-size:14px;line-height:1;padding:0;opacity:.7}
+.tag-rm:hover{opacity:1}
+.tag-inp{border:none;outline:none;background:transparent;font-size:13px;color:var(--text);min-width:100px;font-family:var(--font)}
+
+/* ── JOB CARDS ── */
+.job-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.job-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;cursor:pointer;transition:all .15s}
+.job-card:hover{border-color:var(--border2);background:var(--bg3)}
+.job-card.selected{border-color:var(--amber);background:var(--amber-dim)}
+.jc-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.jc-title{font-size:14px;font-weight:500;color:var(--text)}
+.jc-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.jc-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.score-bar{height:4px;background:var(--bg4);border-radius:2px;margin-top:10px;overflow:hidden}
+.score-fill{height:100%;border-radius:2px;transition:width .5s ease}
+
+/* ── ANALYSIS ── */
+.analysis-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.a-stat{background:var(--bg3);border-radius:var(--r);padding:14px;text-align:center}
+.a-stat-val{font-size:26px;font-weight:600;font-family:var(--mono)}
+.a-stat-label{font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
+.kw-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.kw{padding:3px 10px;border-radius:100px;font-size:12px;font-family:var(--mono)}
+.kw-match{background:var(--teal-dim);color:var(--teal)}
+.kw-miss{background:var(--red-dim);color:var(--red)}
+.strength-item{display:flex;gap:8px;font-size:13px;padding:5px 0;color:var(--text)}
+.check{color:var(--teal)}
+.warn{color:var(--amber)}
+
+/* ── OUTPUT ── */
+.output-block{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-size:12px;line-height:1.75;color:var(--text);white-space:pre-wrap;font-family:var(--mono);max-height:400px;overflow-y:auto}
+.output-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.output-label{font-size:12px;font-weight:500;color:var(--muted)}
+
+/* ── TOGGLE ── */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.tl{font-size:13px;color:var(--text)}
+.td{font-size:11px;color:var(--muted);margin-top:2px}
+.toggle{position:relative;width:38px;height:21px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.tslider{position:absolute;inset:0;background:var(--subtle);border-radius:11px;cursor:pointer;transition:.2s}
+.tslider:before{content:'';position:absolute;width:15px;height:15px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}
+input:checked+.tslider{background:var(--teal)}
+input:checked+.tslider:before{transform:translateX(17px)}
+.range-row{display:flex;align-items:center;gap:12px;padding:10px 0}
+.rl{font-size:12px;color:var(--muted);min-width:110px}
+.rv{font-size:13px;font-family:var(--mono);color:var(--amber);min-width:40px;text-align:right}
+input[type=range]{flex:1;accent-color:var(--amber)}
+
+/* ── BOT SETUP ── */
+.setup-step{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
+.setup-step:last-child{border-bottom:none}
+.sn{width:26px;height:26px;border-radius:50%;background:var(--amber-dim);color:var(--amber);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0;font-family:var(--mono)}
+.sc-title{font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px}
+.sc-desc{font-size:12px;color:var(--muted);line-height:1.6}
+code{font-family:var(--mono);font-size:11px;background:var(--bg4);padding:2px 6px;border-radius:4px;color:var(--amber)}
+.pipeline{display:flex;align-items:center;gap:8px;padding:16px;background:var(--bg3);border-radius:var(--r2);margin-bottom:20px;flex-wrap:wrap}
+.pipe-step{text-align:center;flex:1;min-width:80px}
+.pipe-icon{font-size:22px;margin-bottom:4px}
+.pipe-label{font-size:11px;color:var(--muted);line-height:1.4}
+.pipe-arrow{color:var(--subtle);font-size:18px}
+.log-line{font-size:12px;font-family:var(--mono);padding:5px 0;border-bottom:1px solid var(--border);display:flex;gap:10px}
+.log-line:last-child{border-bottom:none}
+.log-time{color:var(--subtle);flex-shrink:0}
+.log-ok{color:var(--teal)}
+.log-skip{color:var(--amber)}
+.log-err{color:var(--red)}
+.log-info{color:var(--blue)}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);padding:28px;width:100%;max-width:480px}
+.modal-title{font-size:18px;font-weight:600;margin-bottom:6px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6}
+.modal-footer{margin-top:20px;display:flex;gap:8px;justify-content:flex-end}
+
+/* ── DASHBOARD ── */
+.activity-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:6px}
+.activity-text{font-size:13px;color:var(--text)}
+.activity-sub{font-size:12px;color:var(--muted)}
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qa-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:16px;cursor:pointer;transition:all .15s}
+.qa-card:hover{border-color:var(--border2);background:var(--bg4)}
+.qa-icon{font-size:20px;margin-bottom:8px}
+.qa-title{font-size:13px;font-weight:500;color:var(--text)}
+.qa-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.progress-bar{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;background:var(--amber);transition:width .4s}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.section-title{font-size:15px;font-weight:500}
+/* ── FILE UPLOAD ── */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r2);padding:32px 24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg3);position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--amber);background:var(--amber-dim)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:32px;margin-bottom:10px}
+.upload-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px}
+.upload-sub{font-size:12px;color:var(--muted)}
+.file-loaded{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--teal-dim);border:1px solid var(--teal);border-radius:var(--r2);margin-top:12px}
+.file-icon{font-size:24px;flex-shrink:0}
+.file-name{font-size:13px;font-weight:500;color:var(--teal);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-chars{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.file-rm{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px}
+.file-rm:hover{color:var(--red)}
+.resume-preview{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-size:11px;font-family:var(--mono);color:var(--muted);max-height:160px;overflow-y:auto;line-height:1.6;margin-top:10px;white-space:pre-wrap}
+.parse-progress{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--bg3);border-radius:var(--r2);margin-top:12px;font-size:13px;color:var(--muted)}
+/* ── DOWNLOAD BUTTONS ── */
+.dl-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn-dl{display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:var(--font);transition:all .15s}
+.btn-dl-resume{background:var(--amber);color:#0b0c0f}
+.btn-dl-resume:hover{background:#d4911c}
+.btn-dl-cover{background:var(--teal);color:#0b0c0f}
+.btn-dl-cover:hover{background:#12a880}
+.btn-dl-txt{background:var(--bg4);color:var(--text);border:1px solid var(--border2)}
+.btn-dl-txt:hover{background:var(--bg3)}
+</style>
+</head>
+<body>
+
+<!-- API Key Modal removed — key secured via Cloudflare Worker -->
+<div class="modal-overlay" id="api-modal" style="display:none!important;pointer-events:none">
+  <div class="modal">
+    <div class="modal-title">Connect your Claude API key</div>
+    <div class="modal-sub">JobAgent uses Claude AI to score job matches and tailor your resume. Your key is stored locally in your browser — never sent anywhere except the Anthropic API.<br><br>Get a free key at <strong>console.anthropic.com</strong> → API Keys.</div>
+    <div class="field">
+      <label>Anthropic API Key</label>
+      <input type="password" id="api-key-input" placeholder="(not used — key secured via proxy)">
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Skip for now</button>
+      <button class="btn btn-amber" onclick="saveApiKey()">Save & Connect</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="logo">
+    <div class="logo-mark">JA</div>
+    <div>
+      <div class="logo-text">JobAgent</div>
+      <div class="logo-sub">AI Application System</div>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-section">Workflow</div>
+    <div class="nav-item active" onclick="nav('dashboard')" id="nav-dashboard">
+      <span class="nav-icon">⬛</span> Dashboard
+    </div>
+    <div class="nav-item" onclick="nav('profile')" id="nav-profile">
+      <span class="nav-icon">◻</span> My Profile
+      <span class="nav-badge" id="badge-profile">—</span>
+    </div>
+    <div class="nav-item" onclick="nav('jobs')" id="nav-jobs">
+      <span class="nav-icon">◻</span> Job Search
+      <span class="nav-badge" id="badge-jobs">0</span>
+    </div>
+    <div class="nav-item" onclick="nav('analyze')" id="nav-analyze">
+      <span class="nav-icon">◻</span> Analyze
+    </div>
+    <div class="nav-item" onclick="nav('apply')" id="nav-apply">
+      <span class="nav-icon">◻</span> Apply Pack
+    </div>
+    <div class="nav-section" style="margin-top:8px">Automation</div>
+    <div class="nav-item" onclick="nav('bot')" id="nav-bot">
+      <span class="nav-icon">◻</span> Auto-Apply Bot
+    </div>
+    <div class="nav-section" style="margin-top:8px">Account</div>
+    <div class="nav-item" onclick="nav('settings')" id="nav-settings">
+      <span class="nav-icon">◻</span> Settings
+    </div>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <div class="api-status" onclick="openModal()" id="api-status-btn">
+      <div class="status-dot ok" id="status-dot"></div>
+      <div>
+        <div class="status-text" id="status-text">API secured via proxy</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ── MAIN CONTENT ── -->
+<main class="main">
+  <div class="topbar">
+    <div class="page-title" id="tb-title">Dashboard</div>
+    <span class="topbar-sep">/</span>
+    <div class="page-sub" id="tb-sub">Overview</div>
+    <div class="topbar-actions">
+      <button class="btn btn-sm" onclick="nav('jobs')">+ Add Jobs</button>
+      <button class="btn btn-sm btn-amber" onclick="nav('bot')">Run Bot</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-val" id="st-jobs">0</div>
+          <div class="stat-label">Jobs tracked</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val amber" id="st-analyzed">0</div>
+          <div class="stat-label">Analyzed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val teal" id="st-packs">0</div>
+          <div class="stat-label">Apply packs ready</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="st-score">—</div>
+          <div class="stat-label">Avg match score</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="card">
+            <div class="card-title">Quick start</div>
+            <div class="quick-actions">
+              <div class="qa-card" onclick="nav('profile')">
+                <div class="qa-icon">📋</div>
+                <div class="qa-title">Set up profile</div>
+                <div class="qa-sub">Upload resume + set preferences</div>
+              </div>
+              <div class="qa-card" onclick="nav('jobs')">
+                <div class="qa-icon">🔍</div>
+                <div class="qa-title">Add jobs</div>
+                <div class="qa-sub">Paste job descriptions</div>
+              </div>
+              <div class="qa-card" onclick="nav('analyze')">
+                <div class="qa-icon">🤖</div>
+                <div class="qa-title">AI analyze</div>
+                <div class="qa-sub">Score & keyword match</div>
+              </div>
+              <div class="qa-card" onclick="nav('bot')">
+                <div class="qa-icon">🌙</div>
+                <div class="qa-title">Sleep & apply</div>
+                <div class="qa-sub">Run overnight bot</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Workflow progress</div>
+            <div id="workflow-progress">
+              <div style="margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span style="color:var(--muted)">Profile complete</span>
+                  <span id="prog-profile" style="color:var(--amber);font-family:var(--mono)">0%</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="pf-profile" style="width:0%"></div></div>
+              </div>
+              <div style="margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span style="color:var(--muted)">Jobs added</span>
+                  <span id="prog-jobs" style="color:var(--amber);font-family:var(--mono)">0</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="pf-jobs" style="width:0%"></div></div>
+              </div>
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                  <span style="color:var(--muted)">Analyzed & ready</span>
+                  <span id="prog-analyzed" style="color:var(--amber);font-family:var(--mono)">0/0</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" id="pf-analyzed" style="width:0%"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div class="card-title">Recent jobs</div>
+            <div id="recent-jobs">
+              <div class="empty-state" style="padding:16px">
+                <div style="font-size:12px;color:var(--muted)">No jobs added yet</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PROFILE ── -->
+    <div class="panel" id="panel-profile">
+      <div class="card">
+        <div class="card-title">Resume</div>
+        <div class="upload-zone" id="upload-zone"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="handleDrop(event)">
+          <input type="file" accept=".pdf,.doc,.docx" onchange="handleFileSelect(event)">
+          <div class="upload-icon">📄</div>
+          <div class="upload-title">Drop your resume here or click to browse</div>
+          <div class="upload-sub">Supports PDF, DOC, and DOCX — parsed automatically</div>
+        </div>
+        <div id="file-status"></div>
+        <div id="resume-preview-wrap" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;margin-bottom:6px">
+            <span style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Extracted text preview</span>
+            <button class="btn btn-sm" onclick="togglePreview()">Show/Hide</button>
+          </div>
+          <div class="resume-preview" id="resume-preview"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Job preferences</div>
+        <div class="grid2">
+          <div class="field">
+            <label>Target job title</label>
+            <input type="text" id="p-title" placeholder="e.g. Senior Product Manager">
+          </div>
+          <div class="field">
+            <label>Location</label>
+            <input type="text" id="p-loc" placeholder="e.g. Remote, NYC, London">
+          </div>
+        </div>
+        <div class="grid2" style="margin-top:10px">
+          <div class="field">
+            <label>Minimum salary</label>
+            <input type="text" id="p-sal" placeholder="e.g. $120,000 or £60k">
+          </div>
+          <div class="field">
+            <label>Work arrangement</label>
+            <select id="p-work">
+              <option>Remote preferred</option>
+              <option>Hybrid acceptable</option>
+              <option>On-site only</option>
+              <option>Any</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Years of experience</label>
+          <input type="text" id="p-exp" placeholder="e.g. 6 years, 3+ years in team leadership">
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Key skills &amp; technologies (press Enter to add)</label>
+          <div class="tag-wrap" id="tag-wrap" onclick="document.getElementById('tag-inp').focus()">
+            <input class="tag-inp" id="tag-inp" placeholder="Type a skill + Enter..." onkeydown="addTag(event)">
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Phone number (for application forms)</label>
+          <input type="text" id="p-phone" placeholder="+1 555 000 0000">
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>City (for application forms)</label>
+          <input type="text" id="p-city" placeholder="New York, NY">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-amber" onclick="saveProfile()">Save profile</button>
+        <span id="profile-saved" style="font-size:12px;color:var(--teal);display:none">✓ Saved</span>
+      </div>
+    </div>
+
+    <!-- ── JOBS ── -->
+    <div class="panel" id="panel-jobs">
+      <div class="card">
+        <div class="card-title">Add job description</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Copy the full job description from LinkedIn, Indeed, Greenhouse, or any job board and paste it here. AI will automatically parse the title and company.</div>
+        <div class="field">
+          <textarea class="lg" id="jd-input" placeholder="Paste job description here...&#10;&#10;Example:&#10;Senior Frontend Engineer — Stripe (Remote)&#10;We're looking for a Senior Frontend Engineer to join our payments team...&#10;Requirements: 5+ years React, TypeScript, excellent CSS...&#10;Salary: $160,000–$200,000&#10;Benefits: Health, dental, 401k, equity..."></textarea>
+        </div>
+        <div class="actions">
+          <button class="btn btn-amber" onclick="addJob()" id="add-job-btn">Add job</button>
+          <span id="add-status" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div class="section-title">Jobs (<span id="job-count">0</span>)</div>
+          <button class="btn btn-sm" onclick="nav('analyze')" id="analyze-btn" style="display:none">Analyze all →</button>
+        </div>
+        <div id="jobs-list">
+          <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <div class="empty-text">No jobs added yet</div>
+            <div class="empty-sub">Paste a job description above to get started</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ANALYZE ── -->
+    <div class="panel" id="panel-analyze">
+      <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start">
+        <div>
+          <div class="card">
+            <div class="card-title">Select job</div>
+            <div id="analyze-job-list">
+              <div class="empty-state" style="padding:16px">
+                <div style="font-size:12px;color:var(--muted)">Add jobs first</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="analysis-panel">
+          <div class="card">
+            <div class="empty-state">
+              <div class="empty-icon">🤖</div>
+              <div class="empty-text">Select a job to analyze</div>
+              <div class="empty-sub">Claude AI will score the match and identify keyword gaps</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── APPLY PACK ── -->
+    <div class="panel" id="panel-apply">
+      <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start">
+        <div>
+          <div class="card">
+            <div class="card-title">Select job</div>
+            <div id="apply-job-list">
+              <div class="empty-state" style="padding:16px">
+                <div style="font-size:12px;color:var(--muted)">Analyze jobs first</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="apply-panel">
+          <div class="card">
+            <div class="empty-state">
+              <div class="empty-icon">📄</div>
+              <div class="empty-text">Select an analyzed job</div>
+              <div class="empty-sub">Generate your tailored resume and cover letter</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BOT SETUP ── -->
+    <div class="panel" id="panel-bot">
+      <div class="pipeline">
+        <div class="pipe-step"><div class="pipe-icon">🔐</div><div class="pipe-label">LinkedIn<br>login</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-icon">🔍</div><div class="pipe-label">Search jobs<br>last 24h</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-icon">🤖</div><div class="pipe-label">Claude AI<br>scores each</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-icon">✍️</div><div class="pipe-label">Tailor<br>resume</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-icon">✅</div><div class="pipe-label">Easy Apply<br>submit</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step"><div class="pipe-icon">📊</div><div class="pipe-label">CSV report<br>morning</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="card">
+            <div class="card-title">Bot schedule &amp; rate limits</div>
+
+            <!-- Apply Window -->
+            <div style="background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:12px">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Apply window</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="text-align:center;flex:1;background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--r);padding:8px">
+                  <div style="font-size:16px;font-weight:600;font-family:var(--mono);color:var(--amber)">6:00 AM</div>
+                  <div style="font-size:10px;color:var(--muted)">Start</div>
+                </div>
+                <div style="color:var(--subtle);font-size:18px">→</div>
+                <div style="text-align:center;flex:1;background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--r);padding:8px">
+                  <div style="font-size:16px;font-weight:600;font-family:var(--mono);color:var(--amber)">10:00 AM</div>
+                  <div style="font-size:10px;color:var(--muted)">End</div>
+                </div>
+                <div style="text-align:center;flex:1;background:var(--bg4);border-radius:var(--r);padding:8px">
+                  <div style="font-size:16px;font-weight:600;font-family:var(--mono);color:var(--text)">4 hrs</div>
+                  <div style="font-size:10px;color:var(--muted)">Duration</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rate + Refresh -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+              <div style="background:var(--bg3);border-radius:var(--r);padding:10px;text-align:center">
+                <div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--teal)">5</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">max applies / hour</div>
+              </div>
+              <div style="background:var(--bg3);border-radius:var(--r);padding:10px;text-align:center">
+                <div style="font-size:20px;font-weight:600;font-family:var(--mono);color:var(--blue)">15 min</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">platform refresh</div>
+              </div>
+            </div>
+
+            <!-- Posted Within Time Bar -->
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <div style="font-size:12px;color:var(--muted)">Only apply to jobs posted within</div>
+                <div style="font-size:13px;font-weight:600;font-family:var(--mono);color:var(--amber)" id="posted-label">2 hr</div>
+              </div>
+              <input type="range" min="15" max="1440" value="120" step="15" id="posted-within"
+                style="width:100%;accent-color:var(--amber)"
+                oninput="updatePostedLabel(this.value)">
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--subtle);margin-top:3px">
+                <span>15 min</span><span>1 hr</span><span>4 hr</span><span>12 hr</span><span>24 hr</span>
+              </div>
+            </div>
+
+            <div class="range-row">
+              <div class="rl">Min match score</div>
+              <input type="range" min="40" max="90" value="65" id="min-score" step="5" oninput="document.getElementById('rv-score').textContent=this.value+'%'">
+              <div class="rv" id="rv-score">65%</div>
+            </div>
+            <div class="range-row" style="margin-bottom:8px">
+              <div class="rl">Delay between apps</div>
+              <input type="range" min="20" max="120" value="45" id="delay-sec" step="5" oninput="document.getElementById('rv-delay').textContent=this.value+'s'">
+              <div class="rv" id="rv-delay">45s</div>
+            </div>
+            <div class="divider" style="margin:8px 0"></div>
+            <div class="toggle-row">
+              <div><div class="tl">Headless (invisible)</div><div class="td">Browser runs in background</div></div>
+              <label class="toggle"><input type="checkbox" id="tog-headless" checked><span class="tslider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="tl">Easy Apply only</div><div class="td">Skip complex multi-page forms</div></div>
+              <label class="toggle"><input type="checkbox" id="tog-easy" checked><span class="tslider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="tl">Save CSV report</div><div class="td">Full log saved each session</div></div>
+              <label class="toggle"><input type="checkbox" id="tog-csv" checked><span class="tslider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <div><div class="tl">Skip already applied</div><div class="td">Tracks applied job IDs</div></div>
+              <label class="toggle"><input type="checkbox" id="tog-skip" checked><span class="tslider"></span></label>
+            </div>
+          </div>
+
+          <div class="card" style="margin-top:12px">
+            <div class="card-title">Morning report (preview)</div>
+            <div class="log-line"><span class="log-time">09:47</span><span class="log-ok">✅ APPLIED — Senior Eng @ Stripe (89%)</span></div>
+            <div class="log-line"><span class="log-time">09:02</span><span class="log-ok">✅ APPLIED — Frontend Dev @ Vercel (81%)</span></div>
+            <div class="log-line"><span class="log-time">08:18</span><span class="log-skip">⏭ SKIPPED — Junior Dev @ OldCo (43%)</span></div>
+            <div class="log-line"><span class="log-time">07:45</span><span class="log-ok">✅ APPLIED — Full Stack @ Linear (76%)</span></div>
+            <div class="log-line"><span class="log-time">07:00</span><span class="log-info">🔄 REFRESH — 3 new jobs found (15-min cycle)</span></div>
+            <div class="log-line"><span class="log-time">06:32</span><span class="log-err">❌ FAILED — Staff Eng @ Notion (form issue)</span></div>
+            <div class="log-line"><span class="log-time">06:00</span><span class="log-info">── Session started · 5/hr limit · 15-min refresh</span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="card-title">Setup guide</div>
+            <div class="setup-step">
+              <div class="sn">1</div>
+              <div>
+                <div class="sc-title">Download the bot script</div>
+                <div class="sc-desc">Click "Download script" below. Save <code>job_agent_bot.py</code> anywhere on your computer.</div>
+              </div>
+            </div>
+            <div class="setup-step">
+              <div class="sn">2</div>
+              <div>
+                <div class="sc-title">Install dependencies</div>
+                <div class="sc-desc"><code>pip install playwright anthropic</code><br><code>playwright install chromium</code></div>
+              </div>
+            </div>
+            <div class="setup-step">
+              <div class="sn">3</div>
+              <div>
+                <div class="sc-title">Get Anthropic API key</div>
+                <div class="sc-desc">Visit <strong>console.anthropic.com</strong> → API Keys → Create. Free credits included. Add it to the script as <code>ANTHROPIC_API_KEY</code>.</div>
+              </div>
+            </div>
+            <div class="setup-step">
+              <div class="sn">4</div>
+              <div>
+                <div class="sc-title">Fill in your credentials</div>
+                <div class="sc-desc">Open the script and add your LinkedIn email/password and paste your resume text. All stays on your machine.</div>
+              </div>
+            </div>
+            <div class="setup-step">
+              <div class="sn">5</div>
+              <div>
+                <div class="sc-title">Run before bed</div>
+                <div class="sc-desc"><code>python job_agent_bot.py</code><br>Leave your laptop open. Wake up to your CSV application log.</div>
+              </div>
+            </div>
+            <div class="setup-step">
+              <div class="sn">6</div>
+              <div>
+                <div class="sc-title">Schedule automatically (optional)</div>
+                <div class="sc-desc">Mac/Linux cron: <code>0 23 * * * python /path/job_agent_bot.py</code><br>Or deploy to a free server on Railway/Render so your laptop stays off.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions" style="margin-top:4px">
+            <button class="btn btn-amber" onclick="downloadBot()">⬇ Download configured script</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ── -->
+    <div class="panel" id="panel-settings">
+      <div class="card" style="max-width:520px">
+        <div class="card-title">API configuration</div>
+        <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--teal-dim);border:1px solid var(--teal);border-radius:var(--r);margin-bottom:12px">
+          <span style="font-size:18px">🔒</span>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--teal)">API key secured via Cloudflare Worker</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Your key never appears in the browser. All AI calls route through your private proxy.</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.7">
+          To update your Worker URL, edit the <code>PROXY_URL</code> constant in the HTML source and re-upload to GitHub.
+        </div>
+      </div>
+
+      <div class="card" style="max-width:520px;margin-top:12px">
+        <div class="card-title">Data management</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px">All your data (profile, jobs, analyses) is saved in your browser's localStorage. It persists between sessions.</div>
+        <div class="actions">
+          <button class="btn" onclick="exportData()">Export data (JSON)</button>
+          <button class="btn" style="color:var(--red);border-color:var(--red-dim)" onclick="clearData()">Clear all data</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end .content -->
+</main>
+</div><!-- end .app -->
+
+<script>
+// ─── STATE ───────────────────────────────────────────
+const S = {
+  apiKey: '',
+  profile: null,
+  tags: [],
+  jobs: [],
+  analyses: {},
+  tailored: {},
+  covers: {},
+  currentTab: 'dashboard',
+  selectedJob: null,
+  resumeText: '',
+  resumeFileName: ''
+};
+
+// ─── INIT ─────────────────────────────────────────────
+function init() {
+  const saved = localStorage.getItem('jobagent_state');
+  if (saved) {
+    try {
+      const d = JSON.parse(saved);
+      S.apiKey = d.apiKey || '';
+      S.profile = d.profile || null;
+      S.tags = d.tags || [];
+      S.jobs = d.jobs || [];
+      S.analyses = d.analyses || {};
+      S.tailored = d.tailored || {};
+      S.covers = d.covers || {};
+      S.resumeText = (d.profile && d.profile.resume) ? d.profile.resume : '';
+      S.resumeFileName = (d.profile && d.profile.fileName) ? d.profile.fileName : '';
+    } catch(e) {}
+  } else {
+    S.resumeText = '';
+    S.resumeFileName = '';
+  }
+
+  updateApiStatus(true); // proxy mode
+
+  if (S.profile) loadProfileForm();
+  renderTags();
+  updateDashboard();
+  updateBadges();
+}
+
+function saveState() {
+  localStorage.setItem('jobagent_state', JSON.stringify({
+    apiKey: S.apiKey, profile: S.profile, tags: S.tags,
+    jobs: S.jobs, analyses: S.analyses, tailored: S.tailored,
+    covers: S.covers
+  }));
+  updateDashboard();
+  updateBadges();
+}
+
+// ─── NAVIGATION ────────────────────────────────────────
+const tabMeta = {
+  dashboard: ['Dashboard', 'Overview'],
+  profile: ['My Profile', 'Resume & preferences'],
+  jobs: ['Job Search', 'Manage job descriptions'],
+  analyze: ['Analyze', 'AI match scoring'],
+  apply: ['Apply Pack', 'Tailored resume & cover letter'],
+  bot: ['Auto-Apply Bot', 'Overnight automation'],
+  settings: ['Settings', 'API key & data']
+};
+
+function nav(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+  const [title, sub] = tabMeta[tab] || [tab, ''];
+  document.getElementById('tb-title').textContent = title;
+  document.getElementById('tb-sub').textContent = sub;
+  S.currentTab = tab;
+  if (tab === 'analyze') renderAnalyzePanel();
+  if (tab === 'apply') renderApplyPanel();
+  if (tab === 'jobs') renderJobsList();
+  if (tab === 'dashboard') updateDashboard();
+}
+
+// ─── API MODAL ─────────────────────────────────────────
+function openModal() {
+  document.getElementById('api-modal').style.display = 'flex';
+  document.getElementById('api-key-input').value = S.apiKey;
+}
+function closeModal() {
+  document.getElementById('api-modal').style.display = 'none';
+}
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) { alert('Please enter your API key'); return; }
+  S.apiKey = key;
+  document.getElementById('settings-api-key').value = key;
+  saveState();
+  updateApiStatus(true);
+  closeModal();
+}
+function updateApiStatus(ok) {
+  document.getElementById('status-dot').className = 'status-dot' + (ok ? ' ok' : '');
+  document.getElementById('status-text').textContent = ok ? 'API connected' : 'API key not set';
+}
+
+// ─── SETTINGS ──────────────────────────────────────────
+function saveSettings() {
+  const key = document.getElementById('settings-api-key').value.trim();
+  if (!key) { alert('Enter your API key'); return; }
+  S.apiKey = key;
+  saveState();
+  updateApiStatus(true);
+  const el = document.getElementById('settings-saved');
+  el.style.display = 'inline';
+  setTimeout(() => el.style.display = 'none', 2000);
+}
+
+// ─── FILE UPLOAD & PARSING ─────────────────────────────
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) parseResumeFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) parseResumeFile(file);
+}
+function togglePreview() {
+  const p = document.getElementById('resume-preview');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+async function parseResumeFile(file) {
+  const status = document.getElementById('file-status');
+  const ext = file.name.split('.').pop().toLowerCase();
+  const allowed = ['pdf','doc','docx'];
+  if (!allowed.includes(ext)) {
+    status.innerHTML = `<div class="file-loaded" style="background:var(--red-dim);border-color:var(--red)"><span class="file-icon">⚠️</span><span style="color:var(--red);font-size:13px">Unsupported format. Please upload a PDF, DOC, or DOCX file.</span></div>`;
+    return;
+  }
+  status.innerHTML = `<div class="parse-progress"><div class="spinner"></div>Parsing ${file.name}...</div>`;
+  try {
+    let text = '';
+    if (ext === 'pdf') {
+      text = await parsePdf(file);
+    } else {
+      text = await parseDocx(file);
+    }
+    text = text.trim();
+    if (!text || text.length < 50) throw new Error('Could not extract readable text. Try a different file.');
+    S.resumeText = text;
+    S.resumeFileName = file.name;
+    renderFileLoaded(file.name, text);
+    saveState();
+  } catch(err) {
+    status.innerHTML = `<div class="file-loaded" style="background:var(--red-dim);border-color:var(--red)"><span class="file-icon">⚠️</span><span style="color:var(--red);font-size:13px">${err.message}</span></div>`;
+  }
+}
+
+async function parsePdf(file) {
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF parser not loaded yet, please wait a moment and try again.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    text += pageText + '\n';
+  }
+  return text;
+}
+
+async function parseDocx(file) {
+  if (typeof mammoth === 'undefined') throw new Error('DOCX parser not loaded yet, please wait a moment and try again.');
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value;
+}
+
+function renderFileLoaded(name, text) {
+  const status = document.getElementById('file-status');
+  const words = text.split(/\s+/).length;
+  status.innerHTML = `
+    <div class="file-loaded">
+      <span class="file-icon">${name.endsWith('.pdf') ? '📕' : '📘'}</span>
+      <div style="flex:1;min-width:0">
+        <div class="file-name">${name}</div>
+        <div class="file-chars">${words.toLocaleString()} words extracted</div>
+      </div>
+      <button class="file-rm" onclick="clearResume()" title="Remove file">✕</button>
+    </div>`;
+  const wrap = document.getElementById('resume-preview-wrap');
+  wrap.style.display = '';
+  const prev = document.getElementById('resume-preview');
+  prev.textContent = text.substring(0, 800) + (text.length > 800 ? '…' : '');
+  prev.style.display = 'none'; // collapsed by default
+}
+
+function clearResume() {
+  S.resumeText = '';
+  S.resumeFileName = '';
+  document.getElementById('file-status').innerHTML = '';
+  document.getElementById('resume-preview-wrap').style.display = 'none';
+  if (S.profile) { S.profile.resume = ''; saveState(); }
+}
+
+// ─── PROFILE ────────────────────────────────────────────
+function addTag(e) {
+  if (e.key !== 'Enter') return;
+  const inp = document.getElementById('tag-inp');
+  const v = inp.value.trim();
+  if (!v || S.tags.includes(v)) return;
+  S.tags.push(v);
+  inp.value = '';
+  renderTags();
+  saveState();
+}
+function removeTag(i) {
+  S.tags.splice(i, 1);
+  renderTags();
+  saveState();
+}
+function renderTags() {
+  const wrap = document.getElementById('tag-wrap');
+  const inp = document.getElementById('tag-inp');
+  wrap.innerHTML = '';
+  S.tags.forEach((t, i) => {
+    const s = document.createElement('span');
+    s.className = 'tag';
+    s.innerHTML = t + `<button class="tag-rm" onclick="removeTag(${i})">×</button>`;
+    wrap.appendChild(s);
+  });
+  wrap.appendChild(inp);
+}
+
+function saveProfile() {
+  const resume = S.resumeText || '';
+  if (!resume) { alert('Please upload your resume file first (PDF, DOC, or DOCX)'); return; }
+  S.profile = {
+    resume,
+    fileName: S.resumeFileName || '',
+    title: document.getElementById('p-title').value.trim(),
+    location: document.getElementById('p-loc').value.trim(),
+    salary: document.getElementById('p-sal').value.trim(),
+    workType: document.getElementById('p-work').value,
+    experience: document.getElementById('p-exp').value.trim(),
+    phone: document.getElementById('p-phone').value.trim(),
+    city: document.getElementById('p-city').value.trim(),
+    skills: [...S.tags]
+  };
+  saveState();
+  const el = document.getElementById('profile-saved');
+  el.style.display = 'inline';
+  setTimeout(() => el.style.display = 'none', 2000);
+}
+
+function loadProfileForm() {
+  if (!S.profile) return;
+  document.getElementById('p-title').value = S.profile.title || '';
+  document.getElementById('p-loc').value = S.profile.location || '';
+  document.getElementById('p-sal').value = S.profile.salary || '';
+  document.getElementById('p-work').value = S.profile.workType || 'Remote preferred';
+  document.getElementById('p-exp').value = S.profile.experience || '';
+  document.getElementById('p-phone').value = S.profile.phone || '';
+  document.getElementById('p-city').value = S.profile.city || '';
+  // Restore resume from saved profile
+  if (S.profile.resume) {
+    S.resumeText = S.profile.resume;
+    S.resumeFileName = S.profile.fileName || 'resume (saved)';
+    renderFileLoaded(S.resumeFileName, S.profile.resume);
+  }
+}
+
+// ─── JOBS ───────────────────────────────────────────────
+async function addJob() {
+  const jd = document.getElementById('jd-input').value.trim();
+  if (!jd) { alert('Paste a job description first'); return; }
+  const btn = document.getElementById('add-job-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Parsing...';
+
+  const idx = S.jobs.length;
+  S.jobs.push({ jd, title: 'Job ' + (idx + 1), company: '', location: '', parsed: false, added: Date.now() });
+  document.getElementById('jd-input').value = '';
+  renderJobsList();
+  saveState();
+
+  // Auto-parse title + company
+  try {
+      const res = await apiCall(`Extract job title, company, and location from this job post. Return JSON only — no markdown: {"title":"...","company":"...","location":"..."}. Post excerpt: ${jd.substring(0, 400)}`);
+      const parsed = JSON.parse(res.replace(/```json|```/g, '').trim());
+      S.jobs[idx].title = parsed.title || S.jobs[idx].title;
+      S.jobs[idx].company = parsed.company || '';
+      S.jobs[idx].location = parsed.location || '';
+      S.jobs[idx].parsed = true;
+      renderJobsList();
+      saveState();
+    } catch(e) { S.jobs[idx].parsed = true; }
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Add job';
+  document.getElementById('add-status').textContent = S.jobs.length + ' job(s) added';
+  document.getElementById('analyze-btn').style.display = '';
+  updateBadges();
+}
+
+function removeJob(i, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('Remove this job?')) return;
+  S.jobs.splice(i, 1);
+  delete S.analyses[i];
+  delete S.tailored[i];
+  delete S.covers[i];
+  // Re-index analyses
+  const newA = {}, newT = {}, newC = {};
+  Object.keys(S.analyses).forEach(k => { if (parseInt(k) < i) { newA[k]=S.analyses[k]; newT[k]=S.tailored[k]; newC[k]=S.covers[k]; } else if (parseInt(k) > i) { newA[parseInt(k)-1]=S.analyses[k]; newT[parseInt(k)-1]=S.tailored[k]; newC[parseInt(k)-1]=S.covers[k]; } });
+  S.analyses = newA; S.tailored = newT; S.covers = newC;
+  if (S.selectedJob === i) S.selectedJob = null;
+  else if (S.selectedJob > i) S.selectedJob--;
+  renderJobsList();
+  saveState();
+}
+
+function renderJobsList() {
+  const el = document.getElementById('jobs-list');
+  document.getElementById('job-count').textContent = S.jobs.length;
+  if (!S.jobs.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No jobs added yet</div><div class="empty-sub">Paste a job description above</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="job-list">' + S.jobs.map((j, i) => {
+    const a = S.analyses[i];
+    const score = a ? a.score : null;
+    const bc = score !== null ? (score >= 70 ? 'badge-teal' : score >= 50 ? 'badge-amber' : 'badge-red') : 'badge-gray';
+    const bt = score !== null ? score + '%' : (j.parsed ? 'ready' : 'parsing...');
+    return `<div class="job-card" onclick="selectJobAndGo('analyze', ${i})">
+      <div class="jc-header">
+        <div>
+          <div class="jc-title">${j.title}</div>
+          <div class="jc-meta">${[j.company, j.location].filter(Boolean).join(' · ') || 'Parsing...'}</div>
+        </div>
+        <div class="jc-actions">
+          <span class="badge ${bc}">${bt}</span>
+          <button class="btn btn-sm btn-icon" onclick="removeJob(${i}, event)" title="Remove" style="color:var(--red);border-color:transparent;background:transparent">✕</button>
+        </div>
+      </div>
+      ${score !== null ? `<div class="score-bar"><div class="score-fill" style="width:${score}%;background:${score>=70?'var(--teal)':score>=50?'var(--amber)':'var(--red)'}"></div></div>` : ''}
+    </div>`;
+  }).join('') + '</div>';
+}
+
+function selectJobAndGo(tab, i) {
+  S.selectedJob = i;
+  nav(tab);
+}
+
+// ─── ANALYZE ───────────────────────────────────────────
+function renderAnalyzePanel() {
+  const list = document.getElementById('analyze-job-list');
+  if (!S.jobs.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Add jobs first</div>';
+    return;
+  }
+  list.innerHTML = S.jobs.map((j, i) => {
+    const a = S.analyses[i];
+    const sel = S.selectedJob === i;
+    const score = a ? a.score : null;
+    const bc = score !== null ? (score>=70?'badge-teal':score>=50?'badge-amber':'badge-red') : 'badge-gray';
+    return `<div class="job-card ${sel ? 'selected' : ''}" onclick="selectJobAnalyze(${i})" style="margin-bottom:6px">
+      <div class="jc-title" style="font-size:13px">${j.title}</div>
+      <div class="jc-meta">${j.company || '—'}</div>
+      <div style="margin-top:6px">
+        ${score !== null ? `<span class="badge ${bc}">${score}% match</span>` : `<span class="badge badge-gray">${j.parsed?'click to analyze':'parsing...'}</span>`}
+      </div>
+    </div>`;
+  }).join('');
+
+  if (S.selectedJob !== null) {
+    if (S.analyses[S.selectedJob]) showAnalysis(S.selectedJob);
+    else { /* just rendered list, user clicks */ }
+  }
+}
+
+async function selectJobAnalyze(i) {
+  S.selectedJob = i;
+  renderAnalyzePanel();
+  if (S.analyses[i]) { showAnalysis(i); return; }
+
+  // proxy mode — no local key needed
+  if (!S.profile) { alert('Complete your profile first'); return; }
+
+  const panel = document.getElementById('analysis-panel');
+  panel.innerHTML = '<div class="card"><div style="display:flex;align-items:center;gap:10px;padding:8px"><div class="spinner"></div><span style="font-size:13px;color:var(--muted)">Analyzing with Claude AI...</span></div></div>';
+
+  const job = S.jobs[i];
+  const prompt = `Analyze this job description against the candidate profile. Return ONLY valid JSON, no markdown, no explanation:
+{"score":<integer 0-100>,"matchedKeywords":[<array of up to 8 strings>],"missingKeywords":[<array of up to 6 strings>],"strengths":[<array of 3 strings>],"gaps":[<array of 1-2 strings>],"recommendation":"<one sentence string>"}
+
+CANDIDATE:
+Seeking: ${S.profile.title}
+Experience: ${S.profile.experience}
+Skills: ${S.profile.skills.join(', ')}
+Resume (first 700 chars): ${S.profile.resume.substring(0, 700)}
+
+JOB DESCRIPTION:
+${job.jd.substring(0, 1400)}`;
+
+  try {
+    const text = await apiCall(prompt, 600);
+    const clean = text.replace(/```json|```/g, '').trim();
+    S.analyses[i] = JSON.parse(clean);
+    saveState();
+    showAnalysis(i);
+    renderAnalyzePanel();
+    renderJobsList();
+  } catch(e) {
+    panel.innerHTML = `<div class="card"><div style="color:var(--red);font-size:13px;padding:8px">Analysis failed: ${e.message}. Check your API key in Settings.</div></div>`;
+  }
+}
+
+function showAnalysis(i) {
+  const a = S.analyses[i];
+  const job = S.jobs[i];
+  const sc = a.score >= 70 ? 'var(--teal)' : a.score >= 50 ? 'var(--amber)' : 'var(--red)';
+  const panel = document.getElementById('analysis-panel');
+  panel.innerHTML = `
+    <div class="card">
+      <div class="card-title">${job.title}${job.company ? ' — ' + job.company : ''}</div>
+      <div class="analysis-stats">
+        <div class="a-stat">
+          <div class="a-stat-val" style="color:${sc}">${a.score}%</div>
+          <div class="a-stat-label">Match score</div>
+        </div>
+        <div class="a-stat">
+          <div class="a-stat-val" style="color:var(--teal)">${a.matchedKeywords.length}</div>
+          <div class="a-stat-label">Keywords matched</div>
+        </div>
+        <div class="a-stat">
+          <div class="a-stat-val" style="color:var(--red)">${a.missingKeywords.length}</div>
+          <div class="a-stat-label">Gaps found</div>
+        </div>
+      </div>
+      <div class="score-bar" style="height:8px;margin-bottom:16px">
+        <div class="score-fill" style="width:${a.score}%;background:${sc}"></div>
+      </div>
+
+      <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Matched keywords</div>
+      <div class="kw-grid">${a.matchedKeywords.map(k => `<span class="kw kw-match">${k}</span>`).join('')}</div>
+
+      <div style="font-size:12px;font-weight:500;color:var(--muted);margin:12px 0 6px;text-transform:uppercase;letter-spacing:.06em">Missing — add to resume</div>
+      <div class="kw-grid">${a.missingKeywords.map(k => `<span class="kw kw-miss">${k}</span>`).join('')}</div>
+
+      <div class="divider"></div>
+      ${a.strengths.map(s => `<div class="strength-item"><span class="check">✓</span>${s}</div>`).join('')}
+      ${a.gaps.length ? '<div style="margin-top:8px">' + a.gaps.map(g => `<div class="strength-item"><span class="warn">!</span>${g}</div>`).join('') + '</div>' : ''}
+      <div class="divider"></div>
+      <div style="font-size:13px;color:var(--muted);font-style:italic;margin-bottom:14px">${a.recommendation}</div>
+      <div class="actions">
+        <button class="btn btn-amber" onclick="selectJobAndGo('apply', ${i})">Generate apply pack →</button>
+      </div>
+    </div>`;
+}
+
+// ─── APPLY PACK ────────────────────────────────────────
+function renderApplyPanel() {
+  const list = document.getElementById('apply-job-list');
+  const analyzed = S.jobs.filter((_, i) => S.analyses[i]);
+  if (!analyzed.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">Analyze jobs first</div>';
+    document.getElementById('apply-panel').innerHTML = '<div class="card"><div class="empty-state"><div class="empty-icon">📄</div><div class="empty-text">No analyzed jobs yet</div><div class="empty-sub">Go to Analyze tab first</div></div></div>';
+    return;
+  }
+  list.innerHTML = S.jobs.map((j, i) => {
+    if (!S.analyses[i]) return '';
+    const sel = S.selectedJob === i;
+    const hasPack = !!S.tailored[i];
+    return `<div class="job-card ${sel?'selected':''}" onclick="selectApply(${i})" style="margin-bottom:6px">
+      <div class="jc-title" style="font-size:13px">${j.title}</div>
+      <div class="jc-meta">${j.company||'—'}</div>
+      <div style="margin-top:6px;display:flex;gap:6px">
+        <span class="badge badge-amber">${S.analyses[i].score}%</span>
+        ${hasPack ? '<span class="badge badge-teal">pack ready</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  if (S.selectedJob !== null && S.analyses[S.selectedJob]) {
+    if (S.tailored[S.selectedJob]) showApplyPack(S.selectedJob);
+    else showApplyGen(S.selectedJob);
+  }
+}
+
+function selectApply(i) {
+  S.selectedJob = i;
+  renderApplyPanel();
+}
+
+function showApplyGen(i) {
+  const job = S.jobs[i];
+  const a = S.analyses[i];
+  document.getElementById('apply-panel').innerHTML = `
+    <div class="card">
+      <div class="card-title">${job.title}${job.company?' — '+job.company:''}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Claude will rewrite your resume to be ATS-optimized for this specific role, then write a targeted cover letter.</div>
+      <div class="analysis-stats" style="margin-bottom:16px">
+        <div class="a-stat"><div class="a-stat-val" style="color:${a.score>=70?'var(--teal)':a.score>=50?'var(--amber)':'var(--red)'}">${a.score}%</div><div class="a-stat-label">Match</div></div>
+        <div class="a-stat"><div class="a-stat-val" style="color:var(--teal)">${a.matchedKeywords.length}</div><div class="a-stat-label">Keywords</div></div>
+        <div class="a-stat"><div class="a-stat-val">${a.missingKeywords.length}</div><div class="a-stat-label">Gaps</div></div>
+      </div>
+      <button class="btn btn-amber" id="gen-pack-btn" onclick="generatePack(${i})">Generate tailored resume + cover letter</button>
+    </div>`;
+}
+
+async function generatePack(i) {
+  const btn = document.getElementById('gen-pack-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Tailoring resume...'; }
+
+  const job = S.jobs[i];
+  const a = S.analyses[i];
+  const p = S.profile;
+
+  try {
+    const resumeText = await apiCall(`You are an expert ATS resume writer. Rewrite this candidate's resume to be perfectly optimized for this specific job.
+
+RULES:
+- Keep all real experience (never fabricate)
+- Add a tailored 3-sentence professional summary at the very top
+- Mirror these keywords naturally: ${a.matchedKeywords.join(', ')}
+- Work in where genuinely applicable: ${a.missingKeywords.join(', ')}
+- Use strong action verbs, quantify achievements
+- Clean ATS format: no tables, columns, or graphics
+- Output the complete resume text only. No commentary, no markdown headers.
+
+CANDIDATE RESUME:
+${p.resume}
+
+JOB DESCRIPTION:
+${job.jd.substring(0, 1000)}`, 1000);
+
+    if (btn) btn.innerHTML = '<div class="spinner"></div> Writing cover letter...';
+
+    const coverText = await apiCall(`Write a cover letter for this job application. CRITICAL RULES:
+- Write entirely in first person ("I", "my", "I've", "I'm")
+- Sound like a real human wrote this — conversational, warm, direct
+- NO clichés: no "I am writing to express", "I am a passionate", "leverage", "synergy", "dynamic team player"
+- NO AI-sounding phrases. Read it back — would a real person say this?
+- 3 short punchy paragraphs, under 220 words total
+- Para 1: Hook — a specific, concrete reason why THIS company excites you (not generic flattery)
+- Para 2: Your 2-3 most relevant achievements with real numbers/impact. Use "I" statements
+- Para 3: Forward-looking — what you'd bring specifically, and a confident close
+- Match the tone to the job: startup = casual/direct, enterprise = professional but warm
+- Output ONLY the letter body. No "Dear Hiring Manager", no sign-off, no subject line.
+
+Role: ${job.title} at ${job.company || 'the company'}
+My key strengths for this role: ${a.strengths.join('; ')}
+Keywords I'll naturally weave in: ${a.matchedKeywords.slice(0,5).join(', ')}
+JD excerpt: ${job.jd.substring(0, 600)}
+My background: ${p.resume.substring(0, 400)}`, 500);
+
+    S.tailored[i] = resumeText;
+    S.covers[i] = coverText;
+    saveState();
+    showApplyPack(i);
+  } catch(e) {
+    document.getElementById('apply-panel').innerHTML = `<div class="card"><div style="color:var(--red);font-size:13px">Generation failed: ${e.message}</div></div>`;
+  }
+}
+
+function showApplyPack(i) {
+  const job = S.jobs[i];
+  const a = S.analyses[i];
+  const p = S.profile;
+  const safeName = (job.company || 'Company').replace(/[^a-z0-9]/gi,'_');
+  const safeTitle = (job.title || 'Role').replace(/[^a-z0-9]/gi,'_');
+  document.getElementById('apply-panel').innerHTML = `
+    <div class="card">
+      <div class="output-header">
+        <span class="output-label">ATS-OPTIMIZED RESUME</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge badge-teal">${a.score}% match</span>
+          <button class="btn btn-sm" onclick="copyText('out-resume')">Copy</button>
+          <button class="btn btn-sm" onclick="showApplyGen(${i})">Regenerate</button>
+        </div>
+      </div>
+      <div class="output-block" id="out-resume">${escHtml(S.tailored[i])}</div>
+      <div class="dl-row">
+        <button class="btn-dl btn-dl-resume" onclick="downloadResumePdf(${i})">⬇ Download Resume (PDF)</button>
+        <button class="btn btn-sm" onclick="copyText('out-resume')" style="margin-left:4px">Copy text</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">PDF opens a print dialog — choose "Save as PDF" to download</div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="output-header">
+        <span class="output-label">COVER LETTER — FIRST PERSON · HUMANIZED</span>
+        <button class="btn btn-sm" onclick="copyText('out-cover')">Copy</button>
+      </div>
+      <div class="output-block" id="out-cover">${escHtml(S.covers[i])}</div>
+      <div class="dl-row">
+        <button class="btn-dl btn-dl-cover" onclick="downloadCoverPdf(${i})">⬇ Download Cover Letter (PDF)</button>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-title">Skip ATS — direct outreach strategy</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.8">
+        <div><span style="color:var(--text);font-weight:500">LinkedIn outreach:</span> Find the hiring manager → connect with a note referencing one specific detail about their team's work or a recent company announcement.</div>
+        <div style="margin-top:8px"><span style="color:var(--text);font-weight:500">Email subject:</span> ${escHtml(job.title)} — ${escHtml(p ? p.experience : '')} | saw your role on [platform]</div>
+        <div style="margin-top:8px"><span style="color:var(--text);font-weight:500">Mention in outreach:</span> ${a.missingKeywords.slice(0,4).join(', ')} — even briefly, if you have any exposure to these.</div>
+      </div>
+    </div>`;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function downloadResumePdf(i) {
+  const job = S.jobs[i];
+  const p = S.profile;
+  const name = p && p.resume ? p.resume.split('\n')[0].split('|')[0].trim() : 'Resume';
+  const sf = ((job.company||'Company')+'_'+(job.title||'Resume')).replace(/[^a-z0-9]/gi,'_');
+  printAsPdf(S.tailored[i], name, `Tailored for: ${job.title}${job.company?' at '+job.company:''}`, 'resume');
+}
+
+function downloadCoverPdf(i) {
+  const job = S.jobs[i];
+  const p = S.profile;
+  const name = p && p.resume ? p.resume.split('\n')[0].split('|')[0].trim() : '';
+  const fullLetter = `Dear Hiring Manager,\n\n${S.covers[i]}\n\nSincerely,\n${name}`;
+  printAsPdf(fullLetter, `Cover Letter — ${job.title}`, job.company||'', 'cover');
+}
+
+function printAsPdf(bodyText, title, subtitle, type) {
+  const lines = bodyText.split('\n');
+  const htmlLines = lines.map(line => {
+    if (!line.trim()) return '<div style="height:8px"></div>';
+    if (/^[A-Z][A-Z\s&\/\-]{3,}$/.test(line.trim())) {
+      return `<div style="font-size:11pt;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border-bottom:1.5px solid #222;padding-bottom:2px;margin:14px 0 5px;color:#111">${line}</div>`;
+    }
+    if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
+      return `<div style="padding-left:18px;margin:2px 0;position:relative"><span style="position:absolute;left:4px">•</span>${line.replace(/^[•\-]\s*/,'')}</div>`;
+    }
+    return `<div style="margin:2px 0;line-height:1.55">${line}</div>`;
+  });
+
+  const accentColor = type === 'resume' ? '#c8780a' : '#0f9b78';
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>${title}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Calibri','Georgia',serif;font-size:10.5pt;color:#1a1a1a;background:#fff;padding:28mm 22mm}
+  .hdr{border-bottom:2.5px solid ${accentColor};padding-bottom:10px;margin-bottom:18px}
+  .hdr-name{font-size:20pt;font-weight:700;letter-spacing:-.02em;color:#111}
+  .hdr-sub{font-size:9.5pt;color:#666;margin-top:3px}
+  .body{line-height:1.55}
+  @page{margin:18mm 16mm;size:A4}
+  @media print{
+    body{padding:0}
+    button,no-print{display:none!important}
+  }
+</style>
+</head><body>
+<div class="hdr">
+  <div class="hdr-name">${title}</div>
+  ${subtitle ? `<div class="hdr-sub">${subtitle}</div>` : ''}
+</div>
+<div class="body">${htmlLines.join('\n')}</div>
+<div style="margin-top:32px;font-size:8pt;color:#bbb;border-top:1px solid #eee;padding-top:8px">Generated by JobAgent · ${new Date().toLocaleDateString()}</div>
+<script>window.onload=()=>{setTimeout(()=>window.print(),300)}<\/script>
+</body></html>`;
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) { alert('Allow pop-ups for this page to download as PDF'); return; }
+  win.document.write(html);
+  win.document.close();
+}
+
+function copyText(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const btns = document.querySelectorAll('.btn-sm');
+    btns.forEach(b => { if (b.textContent === 'Copy') { b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy', 1500); } });
+  });
+}
+
+// ─── BOT DOWNLOAD ──────────────────────────────────────
+function updatePostedLabel(mins) {
+  const m = parseInt(mins);
+  let label;
+  if (m < 60) label = m + ' min';
+  else if (m === 60) label = '1 hr';
+  else if (m < 1440) label = (m/60).toFixed(m%60===0?0:1) + ' hr';
+  else label = '24 hr';
+  document.getElementById('posted-label').textContent = label;
+}
+
+function downloadBot() {
+  const score  = document.getElementById('min-score').value;
+  const delay  = document.getElementById('delay-sec').value;
+  const posted = document.getElementById('posted-within').value;
+  const headless = document.getElementById('tog-headless').checked;
+  const p = S.profile;
+  const postedSecs = parseInt(posted) * 60;
+
+  const script = `"""
+AI Job Agent — Morning Auto-Apply Bot
+======================================
+Runs 6:00 AM – 10:00 AM daily.
+Applies at most 5 jobs/hour. Refreshes job listings every 15 minutes.
+Scores each job with Claude AI before applying.
+
+SETUP:
+  pip install playwright anthropic
+  playwright install chromium
+
+SCHEDULE (Mac/Linux cron — runs every morning):
+  0 6 * * * /usr/bin/python3 /path/to/job_agent_bot.py
+
+USAGE:
+  python job_agent_bot.py
+"""
+
+import asyncio, json, csv, os, re, time
+from datetime import datetime, timedelta
+from pathlib import Path
+from anthropic import Anthropic
+
+# ── YOUR CREDENTIALS ──────────────────────────────────
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "YOUR_KEY_HERE")
+LINKEDIN_EMAIL    = os.getenv("LI_EMAIL",    "YOUR_LINKEDIN_EMAIL")
+LINKEDIN_PASSWORD = os.getenv("LI_PASSWORD", "YOUR_LINKEDIN_PASSWORD")
+
+# ── JOB PREFERENCES ───────────────────────────────────
+JOB_TITLE      = "${p ? p.title : 'Software Engineer'}"
+JOB_LOCATION   = "${p ? p.location : 'Remote'}"
+SKILLS         = "${p ? p.skills.join(',') : 'Python,React,Node.js'}"
+PHONE          = "${p ? p.phone : '+1 555 000 0000'}"
+CITY           = "${p ? p.city : 'New York, NY'}"
+
+RESUME_TEXT = """
+${p ? p.resume.substring(0,2000).replace(/"""/g,"'''") : '[PASTE YOUR RESUME HERE]'}
+"""
+
+# ── SCHEDULE & RATE LIMITS ────────────────────────────
+START_HOUR        = 6           # 6:00 AM
+END_HOUR          = 10          # 10:00 AM
+MAX_PER_HOUR      = 5           # Max applications per hour
+REFRESH_MINS      = 15          # Re-check for new jobs every N minutes
+POSTED_WITHIN_SEC = ${postedSecs}  # Only apply to jobs posted within this many seconds
+MIN_MATCH_SCORE   = ${score}    # Skip jobs below this AI match score
+APPLY_DELAY_SEC   = ${delay}    # Seconds between applications
+HEADLESS          = ${headless ? 'True' : 'False'}
+
+# ── INTERNALS ─────────────────────────────────────────
+client     = Anthropic(api_key=ANTHROPIC_API_KEY)
+LOG_FILE   = Path("job_applications.csv")
+STATE_FILE = Path("applied_jobs.json")
+
+def in_window():
+    now = datetime.now()
+    return START_HOUR <= now.hour < END_HOUR
+
+def load_applied():
+    try: return set(json.loads(STATE_FILE.read_text()))
+    except: return set()
+
+def save_applied(job_id):
+    ids = load_applied(); ids.add(job_id)
+    STATE_FILE.write_text(json.dumps(list(ids)))
+
+def log_app(company, title, url, score, status, notes=""):
+    header = not LOG_FILE.exists()
+    with open(LOG_FILE, "a", newline="") as f:
+        w = csv.writer(f)
+        if header: w.writerow(["timestamp","company","title","url","score","status","notes"])
+        w.writerow([datetime.now().strftime("%H:%M:%S"), company, title, url, score, status, notes])
+    icon = "✅" if status=="APPLIED" else "⏭" if status=="SKIPPED" else "❌"
+    print(f"  {icon} {status} — {title} @ {company} ({score}%)")
+
+def score_job(jd):
+    prompt = f"""Score this job vs candidate. JSON only:
+{{"score":<0-100>,"matched":[<keywords,max 6>],"missing":[<keywords,max 4>],"verdict":"<apply|skip>"}}
+Candidate: {JOB_TITLE} | skills: {SKILLS}
+Resume: {RESUME_TEXT[:500]}
+JD: {jd[:1200]}"""
+    try:
+        r = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=220,
+            messages=[{{"role":"user","content":prompt}}])
+        return json.loads(r.content[0].text.replace('\`\`\`json','').replace('\`\`\`','').strip())
+    except:
+        return {{"score":0,"verdict":"skip","matched":[],"missing":[]}}
+
+async def linkedin_login(page):
+    print("🔐 Logging in to LinkedIn...")
+    await page.goto("https://www.linkedin.com/login", wait_until="networkidle")
+    await page.fill("#username", LINKEDIN_EMAIL)
+    await page.fill("#password", LINKEDIN_PASSWORD)
+    await page.click('[type="submit"]')
+    await page.wait_for_load_state("networkidle")
+    ok = "feed" in page.url or "jobs" in page.url
+    print("  ✓ Logged in" if ok else "  ✗ Login failed")
+    return ok
+
+async def search_jobs(page, seen_ids):
+    """Search and return only NEW jobs not yet seen this session."""
+    title = JOB_TITLE.replace(" ", "%20")
+    loc   = JOB_LOCATION.replace(" ", "%20")
+    # f_TPR uses seconds for recency filter
+    url = (f"https://www.linkedin.com/jobs/search/"
+           f"?keywords={title}&location={loc}"
+           f"&f_TPR=r{POSTED_WITHIN_SEC}&f_LF=f_AL&sortBy=DD")
+    await page.goto(url, wait_until="networkidle")
+    await asyncio.sleep(2)
+
+    jobs, cards = [], await page.query_selector_all(".job-card-container")
+    for card in cards[:40]:
+        try:
+            t = await (await card.query_selector(".job-card-list__title")).inner_text()
+            c = await (await card.query_selector(".job-card-container__primary-description")).inner_text()
+            a = await (await card.query_selector("a.job-card-container__link")).get_attribute("href")
+            m = re.search(r"/jobs/view/(\\d+)", a or "")
+            if m and m.group(1) not in seen_ids:
+                jobs.append({{"id":m.group(1),"title":t.strip(),"company":c.strip(),
+                             "url":"https://www.linkedin.com"+a.split("?")[0]}})
+        except: continue
+    return jobs
+
+async def get_jd(page, url):
+    try:
+        await page.goto(url, wait_until="networkidle"); await asyncio.sleep(1.5)
+        try:
+            b = await page.query_selector(".jobs-description__footer-button")
+            if b: await b.click()
+        except: pass
+        el = await page.query_selector(".jobs-description-content__text")
+        if el: return (await el.inner_text()).strip()
+    except: pass
+    return ""
+
+async def easy_apply(page, job):
+    try:
+        await page.goto(job["url"], wait_until="networkidle"); await asyncio.sleep(1.5)
+        btn = (await page.query_selector(".jobs-apply-button--top-card") or
+               await page.query_selector("[aria-label*='Easy Apply']"))
+        if not btn: return False
+        await btn.click(); await asyncio.sleep(2)
+        for _ in range(10):
+            for f in await page.query_selector_all("input[id*='phoneNumber']"):
+                if not await f.input_value(): await f.fill(PHONE)
+            for f in await page.query_selector_all("input[id*='city']"):
+                if not await f.input_value(): await f.fill(CITY)
+            for r in await page.query_selector_all("input[type='radio']"):
+                lid = await r.get_attribute("id")
+                if lid:
+                    lel = await page.query_selector(f"label[for='{{lid}}']")
+                    if lel and "yes" in (await lel.inner_text()).lower():
+                        await r.click()
+            for s in await page.query_selector_all("select"):
+                if not await s.input_value():
+                    opts = await s.query_selector_all("option")
+                    if len(opts) > 1:
+                        v = await opts[1].get_attribute("value")
+                        if v: await s.select_option(v)
+            sub = await page.query_selector("button[aria-label='Submit application']")
+            if sub: await sub.click(); await asyncio.sleep(2); return True
+            rev = await page.query_selector("button[aria-label='Review your application']")
+            if rev: await rev.click(); await asyncio.sleep(1.5); continue
+            nxt = await page.query_selector("button[aria-label='Continue to next step']")
+            if nxt: await nxt.click(); await asyncio.sleep(1.5)
+            else: break
+    except Exception as e:
+        print(f"    Error: {{e}}")
+    return False
+
+async def main():
+    now = datetime.now()
+    print(f"\\n{'='*55}")
+    print(f"  AI Job Agent — Morning Session")
+    print(f"  Window: {START_HOUR}:00 AM – {END_HOUR}:00 AM | Rate: {MAX_PER_HOUR}/hr | Refresh: {REFRESH_MINS} min")
+    print(f"  Posted within: {POSTED_WITHIN_SEC//60} min | Min score: {MIN_MATCH_SCORE}%")
+    print(f"{'='*55}")
+
+    if not in_window():
+        print(f"  Outside apply window ({START_HOUR}:00–{END_HOUR}:00). Exiting.")
+        return
+
+    applied_ids  = load_applied()      # Persistent: never re-apply
+    seen_this_run = set(applied_ids)   # Session: tracks all seen jobs
+
+    applied_total = skipped = errors = 0
+    hour_start    = datetime.now()
+    applied_hour  = 0
+
+    from playwright.async_api import async_playwright
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=HEADLESS,
+            args=["--no-sandbox","--disable-blink-features=AutomationControlled"])
+        ctx = await browser.new_context(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+            viewport={{"width":1280,"height":800}})
+        page = await ctx.new_page()
+
+        if not await linkedin_login(page):
+            await browser.close(); return
+
+        next_refresh = datetime.now()
+
+        while in_window():
+            # Refresh job listings every REFRESH_MINS
+            if datetime.now() >= next_refresh:
+                print(f"\\n🔄 [{datetime.now().strftime('%H:%M')}] Refreshing job listings...")
+                new_jobs = await search_jobs(page, seen_this_run)
+                seen_this_run.update(j["id"] for j in new_jobs)
+                print(f"  {len(new_jobs)} new jobs found")
+                next_refresh = datetime.now() + timedelta(minutes=REFRESH_MINS)
+
+                for job in new_jobs:
+                    if not in_window(): break
+
+                    # Reset hourly counter
+                    if (datetime.now() - hour_start).seconds >= 3600:
+                        applied_hour = 0
+                        hour_start   = datetime.now()
+
+                    if applied_hour >= MAX_PER_HOUR:
+                        wait_secs = 3600 - (datetime.now() - hour_start).seconds
+                        print(f"  ⏳ Hourly limit reached. Waiting {{wait_secs//60}} min...")
+                        await asyncio.sleep(min(wait_secs, REFRESH_MINS * 60))
+                        break
+
+                    print(f"  📋 {{job['title']}} @ {{job['company']}}")
+                    jd = await get_jd(page, job["url"])
+                    if not jd:
+                        errors += 1
+                        log_app(job["company"],job["title"],job["url"],0,"ERROR","No JD")
+                        continue
+
+                    analysis = score_job(jd)
+                    score_val = analysis.get("score", 0)
+                    if score_val < MIN_MATCH_SCORE or analysis.get("verdict") == "skip":
+                        skipped += 1
+                        log_app(job["company"],job["title"],job["url"],score_val,"SKIPPED")
+                        continue
+
+                    success = await easy_apply(page, job)
+                    if success:
+                        applied_total += 1; applied_hour += 1
+                        save_applied(job["id"])
+                        log_app(job["company"],job["title"],job["url"],score_val,"APPLIED")
+                        await asyncio.sleep(APPLY_DELAY_SEC)
+                    else:
+                        errors += 1
+                        log_app(job["company"],job["title"],job["url"],score_val,"FAILED","Form issue")
+
+            # Wait until next refresh cycle
+            sleep_secs = (next_refresh - datetime.now()).seconds
+            if sleep_secs > 0 and in_window():
+                await asyncio.sleep(min(sleep_secs, 30))
+
+        await browser.close()
+
+    print(f"\\n{'='*55}")
+    print(f"  Session complete — Applied: {{applied_total}} | Skipped: {{skipped}} | Errors: {{errors}}")
+    print(f"  Log: {{LOG_FILE.absolute()}}")
+    print(f"{'='*55}\\n")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+`;
+
+  const blob = new Blob([script], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'job_agent_bot.py';
+  a.click();
+}
+
+  const script = `"""
+AI Job Agent — Overnight Auto-Apply Bot
+========================================
+Searches LinkedIn Easy Apply jobs, scores with Claude AI,
+tailors your resume summary, and submits applications.
+
+SETUP:
+  pip install playwright anthropic
+  playwright install chromium
+
+USAGE:
+  python job_agent_bot.py
+"""
+
+import asyncio, json, csv, os, re
+from datetime import datetime
+from pathlib import Path
+from anthropic import Anthropic
+
+# ── YOUR CREDENTIALS ──────────────────────────────────
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "YOUR_KEY_HERE")
+LINKEDIN_EMAIL    = os.getenv("LI_EMAIL",    "YOUR_LINKEDIN_EMAIL")
+LINKEDIN_PASSWORD = os.getenv("LI_PASSWORD", "YOUR_LINKEDIN_PASSWORD")
+
+# ── JOB PREFERENCES ───────────────────────────────────
+JOB_TITLE         = "${p ? p.title : 'Software Engineer'}"
+JOB_LOCATION      = "${p ? p.location : 'Remote'}"
+SKILLS            = "${p ? p.skills.join(',') : 'Python,React,Node.js'}"
+PHONE             = "${p ? p.phone : '+1 555 000 0000'}"
+CITY              = "${p ? p.city : 'New York, NY'}"
+
+RESUME_TEXT = """
+${p ? p.resume.replace(/"""/g, "'''") : '[PASTE YOUR RESUME HERE]'}
+"""
+
+# ── BOT SETTINGS ──────────────────────────────────────
+MIN_MATCH_SCORE   = ${score}
+MAX_APPLIES_NIGHT = ${apps}
+APPLY_DELAY_SEC   = ${delay}
+HEADLESS          = ${headless ? 'True' : 'False'}
+
+# ── INTERNALS ─────────────────────────────────────────
+client     = Anthropic(api_key=ANTHROPIC_API_KEY)
+LOG_FILE   = Path("job_applications.csv")
+STATE_FILE = Path("applied_jobs.json")
+
+def load_applied():
+    try: return set(json.loads(STATE_FILE.read_text()))
+    except: return set()
+
+def save_applied(job_id):
+    ids = load_applied(); ids.add(job_id)
+    STATE_FILE.write_text(json.dumps(list(ids)))
+
+def log_app(company, title, url, score, status, notes=""):
+    header = not LOG_FILE.exists()
+    with open(LOG_FILE, "a", newline="") as f:
+        w = csv.writer(f)
+        if header: w.writerow(["timestamp","company","title","url","score","status","notes"])
+        w.writerow([datetime.now().isoformat(), company, title, url, score, status, notes])
+    print(f"  Logged: {status} — {title} @ {company} ({score}%)")
+
+def score_job(jd):
+    prompt = f"""Score this job against candidate. JSON only:
+{{"score":<0-100>,"matched":[<keywords>],"missing":[<keywords>],"verdict":"<apply|skip>"}}
+Candidate: {JOB_TITLE}, skills: {SKILLS}
+Resume: {RESUME_TEXT[:500]}
+JD: {jd[:1000]}"""
+    try:
+        r = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=200,
+            messages=[{"role":"user","content":prompt}])
+        return json.loads(r.content[0].text.replace('\`\`\`json','').replace('\`\`\`','').strip())
+    except: return {"score":0,"verdict":"skip","matched":[],"missing":[]}
+
+async def linkedin_login(page):
+    print("Logging in to LinkedIn...")
+    await page.goto("https://www.linkedin.com/login", wait_until="networkidle")
+    await page.fill("#username", LINKEDIN_EMAIL)
+    await page.fill("#password", LINKEDIN_PASSWORD)
+    await page.click('[type="submit"]')
+    await page.wait_for_load_state("networkidle")
+    return "feed" in page.url or "jobs" in page.url
+
+async def search_jobs(page):
+    title = JOB_TITLE.replace(" ", "%20")
+    loc   = JOB_LOCATION.replace(" ", "%20")
+    url   = f"https://www.linkedin.com/jobs/search/?keywords={title}&location={loc}&f_TPR=r86400&f_LF=f_AL&sortBy=DD"
+    await page.goto(url, wait_until="networkidle")
+    await asyncio.sleep(2)
+    jobs, cards = [], await page.query_selector_all(".job-card-container")
+    for card in cards[:30]:
+        try:
+            t = await (await card.query_selector(".job-card-list__title")).inner_text()
+            c = await (await card.query_selector(".job-card-container__primary-description")).inner_text()
+            a = await (await card.query_selector("a.job-card-container__link")).get_attribute("href")
+            m = re.search(r"/jobs/view/(\\d+)", a or "")
+            if m: jobs.append({"id":m.group(1),"title":t.strip(),"company":c.strip(),"url":"https://www.linkedin.com"+a.split("?")[0]})
+        except: continue
+    return jobs
+
+async def get_jd(page, url):
+    try:
+        await page.goto(url, wait_until="networkidle"); await asyncio.sleep(1.5)
+        try:
+            b = await page.query_selector(".jobs-description__footer-button")
+            if b: await b.click()
+        except: pass
+        el = await page.query_selector(".jobs-description-content__text")
+        if el: return (await el.inner_text()).strip()
+    except: pass
+    return ""
+
+async def easy_apply(page, job):
+    try:
+        await page.goto(job["url"], wait_until="networkidle"); await asyncio.sleep(1.5)
+        btn = await page.query_selector(".jobs-apply-button--top-card") or await page.query_selector("[aria-label*='Easy Apply']")
+        if not btn: return False
+        await btn.click(); await asyncio.sleep(2)
+        for _ in range(8):
+            for f in await page.query_selector_all("input[id*='phoneNumber']"):
+                if not await f.input_value(): await f.fill(PHONE)
+            for f in await page.query_selector_all("input[id*='city']"):
+                if not await f.input_value(): await f.fill(CITY)
+            for r in await page.query_selector_all("input[type='radio']"):
+                lid = await r.get_attribute("id")
+                if lid:
+                    lel = await page.query_selector(f"label[for='{lid}']")
+                    if lel and "yes" in (await lel.inner_text()).lower(): await r.click()
+            for s in await page.query_selector_all("select"):
+                if not await s.input_value():
+                    opts = await s.query_selector_all("option")
+                    if len(opts)>1:
+                        v = await opts[1].get_attribute("value")
+                        if v: await s.select_option(v)
+            sub = await page.query_selector("button[aria-label='Submit application']")
+            if sub: await sub.click(); await asyncio.sleep(2); return True
+            rev = await page.query_selector("button[aria-label='Review your application']")
+            if rev: await rev.click(); await asyncio.sleep(1.5); continue
+            nxt = await page.query_selector("button[aria-label='Continue to next step']")
+            if nxt: await nxt.click(); await asyncio.sleep(1.5)
+            else: break
+    except Exception as e: print(f"  Error: {e}")
+    return False
+
+async def main():
+    print(f"\\nAI Job Agent — Starting night run")
+    print(f"Target: {JOB_TITLE} | Min score: {MIN_MATCH_SCORE}% | Max: {MAX_APPLIES_NIGHT} apps\\n")
+    applied_ids = load_applied()
+    applied = skipped = errors = 0
+
+    from playwright.async_api import async_playwright
+    async with async_playwright() as pw:
+        browser = await pw.chromium.launch(headless=HEADLESS,
+            args=["--no-sandbox","--disable-blink-features=AutomationControlled"])
+        ctx = await browser.new_context(
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width":1280,"height":800})
+        page = await ctx.new_page()
+        if not await linkedin_login(page):
+            print("Login failed."); await browser.close(); return
+        jobs = await search_jobs(page)
+        new_jobs = [j for j in jobs if j["id"] not in applied_ids]
+        print(f"Found {len(new_jobs)} new jobs to evaluate\\n")
+        for job in new_jobs:
+            if applied >= MAX_APPLIES_NIGHT: break
+            print(f"Evaluating: {job['title']} @ {job['company']}")
+            jd = await get_jd(page, job["url"])
+            if not jd: errors+=1; log_app(job["company"],job["title"],job["url"],0,"ERROR","No JD"); continue
+            analysis = score_job(jd)
+            score = analysis.get("score",0)
+            print(f"  Score: {score}% ({analysis.get('verdict','skip')})")
+            if score < MIN_MATCH_SCORE or analysis.get("verdict")=="skip":
+                skipped+=1; log_app(job["company"],job["title"],job["url"],score,"SKIPPED"); continue
+            success = await easy_apply(page, job)
+            if success:
+                applied+=1; save_applied(job["id"])
+                log_app(job["company"],job["title"],job["url"],score,"APPLIED")
+            else:
+                errors+=1; log_app(job["company"],job["title"],job["url"],score,"FAILED","Form issue")
+            if applied < MAX_APPLIES_NIGHT:
+                print(f"  Waiting {APPLY_DELAY_SEC}s..."); await asyncio.sleep(APPLY_DELAY_SEC)
+        await browser.close()
+
+    print(f"\\nNight complete — Applied: {applied} | Skipped: {skipped} | Errors: {errors}")
+    print(f"Log saved to: {LOG_FILE.absolute()}\\n")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+`;
+
+  const blob = new Blob([script], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'job_agent_bot.py';
+  a.click();
+}
+
+// ─── CLAUDE API ────────────────────────────────────────
+// ── PROXY URL — update this after deploying your Cloudflare Worker ──
+const PROXY_URL = 'https://jolly-limit-ae85.purposeless838.workers.dev'; // e.g. https://jobagent-proxy.yourname.workers.dev
+
+async function apiCall(prompt, maxTokens = 500) {
+  if (!PROXY_URL || PROXY_URL.includes('YOUR_WORKER')) {
+    throw new Error('Set your Worker URL in the PROXY_URL constant at the top of the script');
+  }
+  const res = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Proxy error ${res.status}`);
+  }
+  const d = await res.json();
+  return d.content[0].text;
+}
+
+// ─── DASHBOARD ─────────────────────────────────────────
+function updateDashboard() {
+  document.getElementById('st-jobs').textContent = S.jobs.length;
+  const analyzed = Object.keys(S.analyses).length;
+  document.getElementById('st-analyzed').textContent = analyzed;
+  const packs = Object.keys(S.tailored).length;
+  document.getElementById('st-packs').textContent = packs;
+
+  const scores = Object.values(S.analyses).map(a => a.score);
+  const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+  document.getElementById('st-score').textContent = scores.length ? avg + '%' : '—';
+
+  const profilePct = S.profile ? 100 : 0;
+  document.getElementById('prog-profile').textContent = profilePct + '%';
+  document.getElementById('pf-profile').style.width = profilePct + '%';
+  document.getElementById('prog-jobs').textContent = S.jobs.length;
+  document.getElementById('pf-jobs').style.width = Math.min(S.jobs.length * 20, 100) + '%';
+  document.getElementById('prog-analyzed').textContent = analyzed + '/' + S.jobs.length;
+  document.getElementById('pf-analyzed').style.width = (S.jobs.length ? analyzed/S.jobs.length*100 : 0) + '%';
+
+  const recent = document.getElementById('recent-jobs');
+  if (!S.jobs.length) {
+    recent.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">No jobs yet</div>';
+  } else {
+    recent.innerHTML = S.jobs.slice(-4).reverse().map((j, ri) => {
+      const i = S.jobs.length - 1 - ri;
+      const a = S.analyses[i];
+      const sc = a ? (a.score>=70?'var(--teal)':a.score>=50?'var(--amber)':'var(--red)') : 'var(--subtle)';
+      return `<div class="activity-item">
+        <div class="activity-dot" style="background:${sc}"></div>
+        <div><div class="activity-text">${j.title}</div><div class="activity-sub">${j.company||'—'} ${a?'· '+a.score+'% match':''}</div></div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function updateBadges() {
+  const pb = document.getElementById('badge-profile');
+  pb.textContent = S.profile ? '✓' : '—';
+  pb.className = 'nav-badge' + (S.profile ? ' amber' : '');
+  document.getElementById('badge-jobs').textContent = S.jobs.length;
+}
+
+// ─── DATA ──────────────────────────────────────────────
+function exportData() {
+  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'jobagent_data.json';
+  a.click();
+}
+
+function clearData() {
+  if (!confirm('Clear all data? This cannot be undone.')) return;
+  localStorage.removeItem('jobagent_state');
+  location.reload();
+}
+
+// ─── START ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
